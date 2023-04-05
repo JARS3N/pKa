@@ -1,0 +1,178 @@
+---
+title: "pKa Analysis of %phfluor%"
+header-includes: \pagenumbering{gobble}
+output:
+  pdf_document: default
+html_document:
+  df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = F,message = F)
+```
+
+```{r data,echo=F}
+library(foam)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+library(ggthemes)
+library(kableExtra)
+library(pKa)
+####
+# set Outlier cutoff here
+OLCUT <- 7
+#####
+dir<-"%path%"
+files<-list.files(dir,pattern='(asyr|xflr)$',full.names=T)
+objs<-purrr::map(files,foam::new)
+#####
+meta<-purrr::map_df(objs,function(u){
+  tibble(file=u$file,
+  Instrument=u$Inst,
+  Lot=paste0(u$type,u$lot),
+  Serial=u$sn,
+  SWVersion = u$software$SWVersion)
+})
+
+####
+data0 <- get_titration_data(objs,meta$file)
+
+
+data<-filter(data0,modZ<=OLCUT)
+
+outliers<-filter(data0,modZ>OLCUT)
+
+write.csv(data0,file.path(dir,"data.csv"),row.names=F)
+
+models<- 
+  purrr::map(split(data,data$dye),function(x){
+    nls(counts ~ SSfpl(pH, Bottom, Top, pKa, Slope), x) 
+  })
+
+model_tbl<-purrr::map_df(models,model_sigs,.id='dye')
+
+
+titrlines <- purrr::map_df(models,line_data_generate,
+                           pH=seq(3.8, 9.2, length.out=150),
+                           .id='dye')
+
+effective_range <- generate_ef_range(titrlines)
+gain_df<-titrlines %>% 
+  split(.,.$dye) %>% 
+  purrr::map_df(.,generate_gain,.id='dye')
+```
+
+```{r titrplot,echo=F}
+cols <- c("CL" = "cornflowerblue","PR" = "red")
+titr_plot<-ggplot(data,aes(x=pH,y=counts,colour=dye,fill=dye))+
+  geom_jitter(aes(fill=dye),size=2,shape=16,alpha=.7)+
+  geom_line(data=titrlines,aes(x=pH,y=val,colour=dye))+
+  theme_minimal()+
+  ggtitle('Titration Curve')+
+  guides(colour = FALSE,fill=FALSE) +
+  scale_colour_manual(values = cols)+
+  geom_vline(data=effective_range,
+             aes(xintercept=`Low pH`,color=dye),linetype = 'dotted')+
+  geom_vline(data=effective_range,
+             aes(xintercept=`High pH`,color=dye),linetype = 'dotted')
+
+```
+
+```{r gain plot,echo=F}
+
+gain_plot<-ggplot(gain_df,
+       aes(x=pH,y=Gain,colour=dye)) + 
+  geom_line(size=2) +
+  theme_minimal() +
+  scale_colour_manual(values = cols)+
+  ggtitle('Gain Curve') +
+  theme(legend.position = 'right')+
+  geom_vline(data=effective_range,
+             aes(xintercept=`Low pH`,color=dye),linetype = 'dotted')+
+  geom_vline(data=effective_range,
+             aes(xintercept=`High pH`,color=dye),linetype = 'dotted')
+```
+
+```{r,echo=F,fig.width=11,fig.height=4.5}
+grid.arrange(titr_plot,gain_plot, nrow=1, ncol=2,top='pKa')
+```
+
+```{r modelinfo,echo=F}
+kbl(meta,
+  caption = "Files used",
+  row.names = NA,
+  format = 'pandoc',
+   full_width = T,
+    font_size = 8,
+    latex_options = c("striped", "scale_down"))
+
+split_model_sumary<- 
+   select(model_tbl,dye,attr,Estimate,`Std. Error`,`2.5%`,`97.5%`)
+
+
+kbl(
+  effective_range,
+  caption = "Effective Range",
+  row.names = NA,
+  format = 'pandoc',
+  full_width = T,
+  font_size = 8,
+  latex_options = c("striped", "scale_down")
+) 
+
+split_model_sumary %>% 
+  filter(dye=="CL") %>%
+  select(-dye) %>% 
+kbl(.,
+  caption = "Clear pKa Information",
+  row.names = NA,
+  format = 'pandoc',
+  full_width = T,
+  font_size = 8,
+  latex_options = c("striped", "scale_down")
+) 
+
+
+split_model_sumary %>%
+  filter(dye == "PR") %>%
+  select(-dye) %>%
+  kbl(
+    .,
+    caption = "Phenol Red (3mg/mL) pKa information",
+    row.names = NA,
+    format = 'pandoc',
+    full_width = T,
+    font_size = 8,
+    latex_options = c("striped", "scale_down")
+  ) 
+```
+
+*Wells that have a modified z-score greater than `r OLCUT` when compared to their respective grouping of pH and dye content are labeled as outliers and removed from modeling. If present,outliers will be listed in a table below*  
+
+```{r outliers}
+
+data2<- 
+   mutate(data0,Well = plates::num_to_well(Well,n=max(Well))) %>% filter(.,modZ>OLCUT) %>%
+  group_by(file) %>% 
+  summarise(Wells=paste0(Well,collapse=","))
+
+if(nrow(data2)>0){
+  kbl(
+    data2,
+    caption = "Outliers Removed",
+    row.names = NA,
+    format = 'pandoc',
+    full_width = T,
+    font_size = 8,
+    latex_options = c("striped", "scale_down")
+  ) 
+}
+```
+  
+#### Results
+```{r}
+Result <-
+  results_messaging(filter(split_model_sumary, attr == "pKa", dye == "CL"))
+```  
+`r Result`  
