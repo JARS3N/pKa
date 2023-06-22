@@ -3,7 +3,7 @@ function <- spock_server() {
   require(dplyr)
   library(rmarkdown)
   library(shinyFiles)
-  Q <- readLines("start.rmd")
+  Q <- readLines(system.file("start.rmd",package="pKa"))
   function(input, output, session)
     observeEvent(input$upload, {
       IP <<- input$upload
