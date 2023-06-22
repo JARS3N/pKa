@@ -1,4 +1,4 @@
-function <- spock_server() {
+spock_server<-function() {
   library(shiny)
   require(dplyr)
   library(rmarkdown)
