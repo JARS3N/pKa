@@ -108,7 +108,9 @@ kbl(meta,
     latex_options = c("striped", "scale_down"))
 
 split_model_sumary<- 
-   select(model_tbl,dye,attr,Estimate,`Std. Error`,`2.5%`,`97.5%`)
+    model_tbl %>% 
+ setNames(.,gsub("Parameter","attr",names(.))) %>% 
+   select(.,dye,attr,Estimate,`Std. Error`,`2.5%`,`97.5%`)
 
 
 kbl(
