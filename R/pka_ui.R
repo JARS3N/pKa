@@ -5,4 +5,4 @@ ui <- function() {
     mainPanel(
       actionButton("GO", "Select Directory", icon = icon("upload"))
     )
-  )
+  )}
