@@ -1,4 +1,4 @@
-process<-function(dir=choose.dir()){
+process<-function(dir=choose_directory()){
 require(dplyr)
 library(rmarkdown)
 #x<-gsub("\\\\","/",dir)
