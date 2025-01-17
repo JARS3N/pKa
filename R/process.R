@@ -1,7 +1,8 @@
 process<-function(dir=choose.dir()){
 require(dplyr)
 library(rmarkdown)
-x<-gsub("\\\\","/",dir)
+#x<-gsub("\\\\","/",dir)
+x<-normalizePath(dir, winslash = "/", mustWork = FALSE)
 Q<-readLines(system.file('rebuild.rmd',package="pKa"))
 fix<-gsub("%path%",x,Q) %>%
   gsub("%phfluor%",
