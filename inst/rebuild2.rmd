@@ -9,8 +9,9 @@ html_document:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
-
-
+```
+  
+```{r data, echo=FALSE}
 library(foam)
 library(dplyr)
 library(knitr)
@@ -23,22 +24,24 @@ library(pKa)
 # Set Outlier Cutoff
 OLCUT <- 7
 
-# Ensure directory exists
-dir <- normalizePath("%path%", winslash = "/")  # Fix cross-platform path issues
+# Ensure directory is correct
+dir <- normalizePath("%path%", winslash = "/")  # This is now correct
+
 if (!dir.exists(dir)) {
+  message("Creating missing directory: ", dir)
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 }
 
 # Find valid files
 files <- list.files(dir, pattern = '(asyr|xflr)$', full.names = TRUE)
 
-# Debugging output (printed in rendered document for troubleshooting)
-print(paste("Working directory:", dir))
-print(paste("Files found:", length(files)))
-
 if (length(files) == 0) {
   stop("No valid data files found in the directory!")
 }
+
+# Debugging Output
+print(paste("Working directory:", dir))
+print(paste("Files found:", length(files)))
 
 # Process files
 objs <- purrr::map(files, foam::new)
@@ -46,7 +49,7 @@ objs <- purrr::map(files, foam::new)
 # Extract metadata
 meta <- purrr::map_df(objs, function(u) {
   tibble(
-    file = normalizePath(u$file, winslash = "/"),  # Ensure LaTeX-friendly path
+    file = normalizePath(u$file, winslash = "/"),
     Instrument = u$Inst,
     Lot = paste0(u$type, u$lot),
     Serial = u$sn,
@@ -66,25 +69,14 @@ outliers <- filter(data0, modZ > OLCUT)
 
 # Ensure CSV file can be written
 csv_path <- file.path(dir, "data.csv")
+
+print(paste("Attempting to write CSV to:", csv_path))
+if (file.exists(csv_path)) {
+  file.remove(csv_path)  # Prevents locked file issues
+}
+
 write.csv(data0, csv_path, row.names = FALSE)
 
 if (!file.exists(csv_path)) {
   stop("CSV file was not created successfully!")
 }
-
-# Model fitting
-models <- purrr::map(split(data, data$dye), function(x) {
-  nls(counts ~ SSfpl(pH, Bottom, Top, pKa, Slope), x)
-})
-
-model_tbl <- purrr::map_df(models, model_sigs, .id = 'dye')
-
-titrlines <- purrr::map_df(models, line_data_generate,
-                           pH = seq(3.8, 9.2, length.out = 150),
-                           .id = 'dye')
-
-effective_range <- generate_ef_range(titrlines)
-
-gain_df <- titrlines %>%
-  split(., .$dye) %>%
-  purrr::map_df(., generate_gain, .id = 'dye')
