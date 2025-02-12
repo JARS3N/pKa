@@ -14,7 +14,8 @@ spock_server <- function() {
     return(text)
   }
 
-  function(input, output, session) {
+  # Return the server function explicitly
+  return(function(input, output, session) {
     observeEvent(input$upload, {
       req(input$upload)  # Ensure upload is not NULL
 
@@ -79,4 +80,30 @@ spock_server <- function() {
 
       # Ensure zip file exists before allowing download
       output$DL <- downloadHandler(
-        filename = func
+        filename = function() {
+          paste0(input$zip, ".zip")
+        },
+        content = function(file) {
+          zip_file <- file.path(temp_dir, "zippy.zip")
+
+          if (!file.exists(zip_file)) {
+            showNotification("Zip file not found!", type = "error")
+            stop("Zip file not found!")
+          }
+
+          Sys.sleep(1)  # Prevent file access issues
+          success <- file.copy(zip_file, file, overwrite = TRUE)
+
+          if (!success) {
+            showNotification("File copy failed!", type = "error")
+            stop("File copy failed!")
+          }
+
+          print("File successfully copied.")
+        }
+      )
+
+      showNotification("Processing complete. Download your results.", type = "message")
+    })
+  })
+}
