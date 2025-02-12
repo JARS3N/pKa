@@ -27,12 +27,14 @@ dir<-"%path%"
 files<-list.files(dir,pattern='(asyr|xflr)$',full.names=T)
 objs<-purrr::map(files,foam::new)
 #####
-meta<-purrr::map_df(objs,function(u){
-  tibble(file=u$file,
-  Instrument=u$Inst,
-  Lot=paste0(u$type,u$lot),
-  Serial=u$sn,
-  SWVersion = u$software$SWVersion)
+meta <- purrr::map_df(objs, function(u){
+  tibble(
+    file = normalizePath(u$file, winslash = "/"),  # Auto-fix paths
+    Instrument = u$Inst,
+    Lot = paste0(u$type, u$lot),
+    Serial = u$sn,
+    SWVersion = u$software$SWVersion
+  )
 })
 
 ####
