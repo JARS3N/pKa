@@ -1,64 +1,93 @@
-# Ensure zip file does not already exist
-if (file.exists(zip_file)) {
-  print(paste("Existing zip file found. Removing:", zip_file))
-  file.remove(zip_file)
-}
+spock_server <- function() {
+  library(shiny)
+  library(dplyr)
+  library(rmarkdown)
+  library(shinyFiles)
 
-# List files to zip
-zip_files <- list.files(temp_dir, full.names = TRUE)
+  return(function(input, output, session) {
+    observeEvent(input$upload, {
+      req(input$upload)  # Ensure upload is not NULL
 
-# Debug: Print full file list
-print("Checking files before zipping:")
-print(zip_files)
+      # Define and clean the temp directory
+      temp_dir <- normalizePath(file.path(getwd(), "temp"), winslash = "/")
+      if (dir.exists(temp_dir)) unlink(temp_dir, recursive = TRUE)
+      dir.create(temp_dir, showWarnings = FALSE)
 
-# Ensure we have files before proceeding
-if (length(zip_files) == 0) {
-  showNotification("⚠️ No files found to zip! Check the temp directory.", type = "error", duration = 10)
-  stop("No files found to zip!")
-}
+      # Read the Rmd template inside the function
+      Q <- readLines(system.file("spock.rmd", package = "pKa"))
 
-# Debug: Check if each file exists before attempting to zip
-for (file in zip_files) {
-  if (!file.exists(file)) {
-    print(paste("⚠️ Warning: Expected file missing:", file))
-    showNotification(paste("⚠️ Missing file:", file), type = "error", duration = 10)
-  } else {
-    print(paste("✅ File exists and will be added to zip:", file))
-  }
-}
+      # Ensure temp_dir uses full path
+      temp_dir <- normalizePath(temp_dir, winslash = "/")
 
-# Debug: Print zip command
-print(paste("🗜️ Attempting to zip files into:", zip_file))
+      # Copy uploaded files
+      uploaded_files <- file.path(temp_dir, input$upload$name)
+      file.copy(input$upload$datapath, uploaded_files)
 
-# Try creating the zip file
-tryCatch(
-  {
-    utils::zip(zip_file, files = zip_files, flags = "-j")
-    print("✅ Zip command executed successfully.")
-  },
-  error = function(e) {
-    print("❌ Zip creation failed!")
-    print(e)
-    showNotification("❌ Zipping files failed! See console for details.", type = "error", duration = 10)
-    stop("Zipping failed!")
-  }
-)
+      # Get list of relevant files
+      fls <- list.files(temp_dir, pattern = "(xflr|asyr)$", full.names = TRUE)
+      if (length(fls) == 0) {
+        showNotification("No valid data files found.", type = "error")
+        return()
+      }
 
-# Debug: Check if the zip file was actually created
-if (!file.exists(zip_file)) {
-  print("❌ Zip file was NOT created! Something went wrong.")
-  showNotification("❌ Zip file was NOT created! Check logs.", type = "error", duration = 10)
-  stop("Zip file was not created!")
-} else {
-  print("🎉 Zip file successfully created:", zip_file)
-  showNotification("🎉 Zip file created successfully!", type = "message", duration = 10)
-}
+      # Replace placeholders in the Rmd template
+      substitute_placeholders <- function(text, replacements) {
+        for (key in names(replacements)) {
+          text <- gsub(key, replacements[[key]], text, fixed = TRUE)
+        }
+        return(text)
+      }
 
-# Debug: Print final zip file size
-zip_size <- file.info(zip_file)$size
-if (!is.na(zip_size) && zip_size > 0) {
-  print(paste("📦 Zip file size:", zip_size, "bytes"))
-} else {
-  print("⚠️ Warning: Zip file is empty or unreadable!")
-  showNotification("⚠️ Zip file is empty! Check contents.", type = "warning", duration = 10)
+      replacements <- list(
+        "xxxx" = paste(shQuote(fls), collapse = ","),
+        "%phfluor%" = input$fluor,
+        "%path%" = temp_dir  # Ensure it is the correct full path
+      )
+      fix <- substitute_placeholders(Q, replacements)
+
+      # Create the new Rmd file
+      new_name <- file.path(temp_dir, paste0(input$zip, "_pKa.rmd"))
+      writeLines(fix, new_name)
+
+      # Render the Rmd file
+      tryCatch(
+        {
+          rmarkdown::render(new_name, quiet = TRUE)
+        },
+        error = function(e) {
+          showNotification("R Markdown rendering failed. Check LaTeX.", type = "error")
+          print(e)
+          return()
+        }
+      )
+
+      # Zip the results
+      zip_file <- file.path(temp_dir, "zippy.zip")
+      tryCatch(
+        {
+          utils::zip(zip_file, files = list.files(temp_dir, full.names = TRUE), flags = "-j")
+        },
+        error = function(e) {
+          showNotification("Zipping files failed.", type = "error")
+          print(e)
+          return()
+        }
+      )
+
+      # Ensure zip file exists before allowing download
+      output$DL <- downloadHandler(
+        filename = function() { paste0(input$zip, ".zip") },
+        content = function(file) {
+          if (!file.exists(zip_file)) {
+            showNotification("Zip file not found!", type = "error")
+            stop("Zip file not found!")
+          }
+          Sys.sleep(1)  # Prevent file access issues
+          file.copy(zip_file, file, overwrite = TRUE)
+        }
+      )
+
+      showNotification("Processing complete. Download your results.", type = "message")
+    })
+  })
 }
