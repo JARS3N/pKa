@@ -9,7 +9,7 @@ spock_server <- function() {
       req(input$upload)  # Ensure upload is not NULL
 
       # Define and clean the temp directory
-      temp_dir <- file.path(getwd(), "temp")
+      temp_dir <- normalizePath(file.path(getwd(), "temp"), winslash = "/")
       if (dir.exists(temp_dir)) unlink(temp_dir, recursive = TRUE)
       dir.create(temp_dir, showWarnings = FALSE)
 
