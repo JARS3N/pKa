@@ -14,7 +14,7 @@ spock_server <- function() {
       dir.create(temp_dir, showWarnings = FALSE)
 
       # Read the Rmd template inside the function
-      Q <- readLines(system.file("start.rmd", package = "pKa"))
+      Q <- readLines(system.file("spock.rmd", package = "pKa"))
 
       # Ensure temp_dir uses full path
       temp_dir <- normalizePath(temp_dir, winslash = "/")
