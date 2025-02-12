@@ -134,17 +134,48 @@ spock_server <- function() {
       }
 
       # Ensure zip file exists before allowing download
-      output$DL <- downloadHandler(
-        filename = function() { paste0(input$zip, ".zip") },
-        content = function(file) {
-          if (!file.exists(zip_file)) {
-            showNotification("Zip file not found!", type = "error")
-            stop("Zip file not found!")
-          }
-          Sys.sleep(1)  # Prevent file access issues
-          file.copy(zip_file, file, overwrite = TRUE)
-        }
-      )
+output$DL <- downloadHandler(
+  filename = function() { 
+    paste0(input$zip, ".zip") 
+  },
+  content = function(file) {
+    print(paste("Download request received for:", zip_file))
+
+    # Check if the zip file exists
+    if (!file.exists(zip_file)) {
+      print("ERROR: Zip file not found at expected location.")
+      showNotification("Zip file not found! Check logs.", type = "error", duration = 10)
+      stop("Zip file not found!")
+    }
+
+    # Debug: Print file size before copying
+    zip_size <- file.info(zip_file)$size
+    print(paste("Zip file size:", zip_size, "bytes"))
+
+    # Ensure the zip file is readable
+    if (zip_size <= 0 || is.na(zip_size)) {
+      print("ERROR: Zip file is empty or unreadable.")
+      showNotification("Zip file is empty or unreadable!", type = "error", duration = 10)
+      stop("Zip file is empty or unreadable!")
+    }
+
+    # Debug: Attempting to copy the file
+    print(paste("Copying zip file to:", file))
+
+    Sys.sleep(1)  # Prevent file access issues
+    success <- file.copy(zip_file, file, overwrite = TRUE)
+
+    if (!success) {
+      print("ERROR: File copy failed!")
+      showNotification("File copy failed! Check permissions.", type = "error", duration = 10)
+      stop("File copy failed!")
+    }
+
+    print("File successfully copied for download.")
+    showNotification("Download is ready!", type = "message", duration = 10)
+  }
+)
+
 
       showNotification("Processing complete. Download your results.", type = "message")
     })
