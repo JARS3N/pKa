@@ -4,18 +4,20 @@ spock_server <- function() {
   library(rmarkdown)
   library(shinyFiles)
 
-  # Return the server function explicitly
   return(function(input, output, session) {
     observeEvent(input$upload, {
       req(input$upload)  # Ensure upload is not NULL
-
-      # Read the RMD template inside the function to avoid scope issues
-      Q <- readLines(system.file("start.rmd", package = "pKa"))
 
       # Define and clean the temp directory
       temp_dir <- file.path(getwd(), "temp")
       if (dir.exists(temp_dir)) unlink(temp_dir, recursive = TRUE)
       dir.create(temp_dir, showWarnings = FALSE)
+
+      # Read the Rmd template inside the function
+      Q <- readLines(system.file("start.rmd", package = "pKa"))
+
+      # Ensure temp_dir uses full path
+      temp_dir <- normalizePath(temp_dir, winslash = "/")
 
       # Copy uploaded files
       uploaded_files <- file.path(temp_dir, input$upload$name)
@@ -28,13 +30,7 @@ spock_server <- function() {
         return()
       }
 
-      # Format file paths correctly for LaTeX
-      temp_dir <- normalizePath(temp_dir, winslash = "/")
-      files <- paste(shQuote(fls), collapse = ",")
-
-      print(files)  # Debugging output
-
-      # Replace placeholders using a helper function
+      # Replace placeholders in the Rmd template
       substitute_placeholders <- function(text, replacements) {
         for (key in names(replacements)) {
           text <- gsub(key, replacements[[key]], text, fixed = TRUE)
@@ -42,22 +38,21 @@ spock_server <- function() {
         return(text)
       }
 
-      # Ensure placeholders are replaced correctly
       replacements <- list(
-        "xxxx" = files,
+        "xxxx" = paste(shQuote(fls), collapse = ","),
         "%phfluor%" = input$fluor,
-        "%path%" = temp_dir
+        "%path%" = temp_dir  # Ensure it is the correct full path
       )
       fix <- substitute_placeholders(Q, replacements)
 
-      # Correctly name the Rmd file
+      # Create the new Rmd file
       new_name <- file.path(temp_dir, paste0(input$zip, "_pKa.rmd"))
       writeLines(fix, new_name)
 
-      # Attempt to render the Rmd file
+      # Render the Rmd file
       tryCatch(
         {
-          rmarkdown::render(new_name, quiet = TRUE)  # Suppress unnecessary logs
+          rmarkdown::render(new_name, quiet = TRUE)
         },
         error = function(e) {
           showNotification("R Markdown rendering failed. Check LaTeX.", type = "error")
@@ -66,7 +61,7 @@ spock_server <- function() {
         }
       )
 
-      # Create a zip archive
+      # Zip the results
       zip_file <- file.path(temp_dir, "zippy.zip")
       tryCatch(
         {
@@ -81,26 +76,14 @@ spock_server <- function() {
 
       # Ensure zip file exists before allowing download
       output$DL <- downloadHandler(
-        filename = function() {
-          paste0(input$zip, ".zip")
-        },
+        filename = function() { paste0(input$zip, ".zip") },
         content = function(file) {
-          zip_file <- file.path(temp_dir, "zippy.zip")
-
           if (!file.exists(zip_file)) {
             showNotification("Zip file not found!", type = "error")
             stop("Zip file not found!")
           }
-
           Sys.sleep(1)  # Prevent file access issues
-          success <- file.copy(zip_file, file, overwrite = TRUE)
-
-          if (!success) {
-            showNotification("File copy failed!", type = "error")
-            stop("File copy failed!")
-          }
-
-          print("File successfully copied.")
+          file.copy(zip_file, file, overwrite = TRUE)
         }
       )
 
