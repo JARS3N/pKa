@@ -1,0 +1,90 @@
+---
+title: "pKa Analysis of %phfluor%"
+header-includes: \pagenumbering{gobble}
+output:
+  pdf_document: default
+html_document:
+  df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+
+library(foam)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+library(ggthemes)
+library(kableExtra)
+library(pKa)
+
+# Set Outlier Cutoff
+OLCUT <- 7
+
+# Ensure directory exists
+dir <- normalizePath("%path%", winslash = "/")  # Fix cross-platform path issues
+if (!dir.exists(dir)) {
+  dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+}
+
+# Find valid files
+files <- list.files(dir, pattern = '(asyr|xflr)$', full.names = TRUE)
+
+# Debugging output (printed in rendered document for troubleshooting)
+print(paste("Working directory:", dir))
+print(paste("Files found:", length(files)))
+
+if (length(files) == 0) {
+  stop("No valid data files found in the directory!")
+}
+
+# Process files
+objs <- purrr::map(files, foam::new)
+
+# Extract metadata
+meta <- purrr::map_df(objs, function(u) {
+  tibble(
+    file = normalizePath(u$file, winslash = "/"),  # Ensure LaTeX-friendly path
+    Instrument = u$Inst,
+    Lot = paste0(u$type, u$lot),
+    Serial = u$sn,
+    SWVersion = u$software$SWVersion
+  )
+})
+
+# Generate titration data
+data0 <- get_titration_data(objs, meta$file)
+
+if (is.null(data0) || nrow(data0) == 0) {
+  stop("Titration data could not be generated!")
+}
+
+data <- filter(data0, modZ <= OLCUT)
+outliers <- filter(data0, modZ > OLCUT)
+
+# Ensure CSV file can be written
+csv_path <- file.path(dir, "data.csv")
+write.csv(data0, csv_path, row.names = FALSE)
+
+if (!file.exists(csv_path)) {
+  stop("CSV file was not created successfully!")
+}
+
+# Model fitting
+models <- purrr::map(split(data, data$dye), function(x) {
+  nls(counts ~ SSfpl(pH, Bottom, Top, pKa, Slope), x)
+})
+
+model_tbl <- purrr::map_df(models, model_sigs, .id = 'dye')
+
+titrlines <- purrr::map_df(models, line_data_generate,
+                           pH = seq(3.8, 9.2, length.out = 150),
+                           .id = 'dye')
+
+effective_range <- generate_ef_range(titrlines)
+
+gain_df <- titrlines %>%
+  split(., .$dye) %>%
+  purrr::map_df(., generate_gain, .id = 'dye')
