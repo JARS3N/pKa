@@ -48,7 +48,7 @@ spock_server <- function() {
   library(rmarkdown)
   library(shinyFiles)
   
-  Q <- readLines(system.file("rebuild2.Rmd", package = "pKa"))
+  Q <- readLines(system.file("rebuild2.rmd", package = "pKa"))
   
   # Helper function for replacing multiple placeholders in text
   substitute_placeholders <- function(text, replacements) {
