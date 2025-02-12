@@ -75,7 +75,7 @@ if (file.exists(csv_path)) {
   file.remove(csv_path)  # Prevents locked file issues
 }
 
-write.csv(data0, csv_path, row.names = FALSE)
+write.csv(data0, file.path("%path%", "data.csv"), row.names = FALSE)
 
 if (!file.exists(csv_path)) {
   stop("CSV file was not created successfully!")
