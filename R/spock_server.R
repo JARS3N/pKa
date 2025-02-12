@@ -4,20 +4,13 @@ spock_server <- function() {
   library(rmarkdown)
   library(shinyFiles)
 
-  Q <- readLines(system.file("start.rmd", package = "pKa"))
-
-  # Helper function for replacing multiple placeholders in text
-  substitute_placeholders <- function(text, replacements) {
-    for (key in names(replacements)) {
-      text <- gsub(key, replacements[[key]], text, fixed = TRUE)
-    }
-    return(text)
-  }
-
   # Return the server function explicitly
   return(function(input, output, session) {
     observeEvent(input$upload, {
       req(input$upload)  # Ensure upload is not NULL
+
+      # Read the RMD template inside the function to avoid scope issues
+      Q <- readLines(system.file("start.rmd", package = "pKa"))
 
       # Define and clean the temp directory
       temp_dir <- file.path(getwd(), "temp")
@@ -41,7 +34,15 @@ spock_server <- function() {
 
       print(files)  # Debugging output
 
-      # Replace placeholders using the helper function
+      # Replace placeholders using a helper function
+      substitute_placeholders <- function(text, replacements) {
+        for (key in names(replacements)) {
+          text <- gsub(key, replacements[[key]], text, fixed = TRUE)
+        }
+        return(text)
+      }
+
+      # Ensure placeholders are replaced correctly
       replacements <- list(
         "xxxx" = files,
         "%phfluor%" = input$fluor,
@@ -49,7 +50,7 @@ spock_server <- function() {
       )
       fix <- substitute_placeholders(Q, replacements)
 
-      # Create the new Rmd file
+      # Correctly name the Rmd file
       new_name <- file.path(temp_dir, paste0(input$zip, "_pKa.rmd"))
       writeLines(fix, new_name)
 
