@@ -75,7 +75,7 @@ if (file.exists(csv_path)) {
   file.remove(csv_path)  # Prevents locked file issues
 }
 clean_path <- gsub("/temp/temp", "/temp", "%path%")
-write.csv(data0, file.path(clean_path", "data.csv"), row.names = FALSE)
+write.csv(data0, file.path(clean_path, "data.csv"), row.names = FALSE)
 
 if (!file.exists(csv_path)) {
   stop("CSV file was not created successfully!")
