@@ -1,8 +1,8 @@
 Package: pKa
 Type: Package
 Title: pKa
-Version: 0.0.18
-Date: 2023-03-29
+Version: 0.0.19
+Date: 2025-03-20
 Author: J.Arsenault
 Maintainer: Who to complain to <JARS3N@GMAIL.COM>
 Description: shiny apps for seastar
@@ -16,6 +16,7 @@ Imports:
       ggplot2,
       kableExtra,
       gridExtra,
-      ggthemes
+      ggthemes,
+      lubridate
 Encoding: UTF-8
 LazyData: true
