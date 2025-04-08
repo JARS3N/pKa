@@ -83,6 +83,16 @@ if (!file.exists(csv_path)) {
 ```
 
 ```{r titrplot, echo=FALSE}
+
+titrlines <- purrr::map_df(models,line_data_generate,
+                           pH=seq(3.8, 9.2, length.out=150),
+                           .id='dye')
+
+effective_range <- generate_ef_range(titrlines)
+
+gain_df<-titrlines %>% 
+  split(.,.$dye) %>% 
+  purrr::map_df(.,generate_gain,.id='dye')
 cols <- c("CL" = "cornflowerblue", "PR" = "red")
 
 titr_plot <- ggplot(data, aes(x = pH, y = counts, colour = dye, fill = dye)) +
