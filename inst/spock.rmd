@@ -3,7 +3,7 @@ title: "pKa Analysis of %phfluor%"
 header-includes: \pagenumbering{gobble}
 output:
   pdf_document: default
-  html_document:
+html_document:
     df_print: paged
 ---
 
@@ -39,9 +39,9 @@ if (length(files) == 0) {
   stop("No valid data files found in the directory!")
 }
 
-# Debugging Output
-print(paste("Working directory:", dir))
-print(paste("Files found:", length(files)))
+# Debugging Output#
+#print(paste("Working directory:", dir))
+#print(paste("Files found:", length(files)))
 
 # Process files
 objs <- purrr::map(files, foam::new)
@@ -70,7 +70,7 @@ outliers <- filter(data0, modZ > OLCUT)
 # Ensure CSV file can be written
 csv_path <- file.path(dir, "data.csv")
 
-print(paste("Attempting to write CSV to:", csv_path))
+#print(paste("Attempting to write CSV to:", csv_path))
 if (file.exists(csv_path)) {
   file.remove(csv_path)  # Prevents locked file issues
 }
@@ -111,7 +111,7 @@ titr_plot <- ggplot(data, aes(x = pH, y = counts, colour = dye, fill = dye)) +
   geom_vline(data = effective_range, aes(xintercept = `Low pH`, color = dye), linetype = 'dotted') +
   geom_vline(data = effective_range, aes(xintercept = `High pH`, color = dye), linetype = 'dotted')
 
-print(titr_plot)
+#print(titr_plot)
 ```
 
 ```{r gain_plot, echo=FALSE}
@@ -124,7 +124,7 @@ gain_plot <- ggplot(gain_df, aes(x = pH, y = Gain, colour = dye)) +
   geom_vline(data = effective_range, aes(xintercept = `Low pH`, color = dye), linetype = 'dotted') +
   geom_vline(data = effective_range, aes(xintercept = `High pH`, color = dye), linetype = 'dotted')
 
-print(gain_plot)
+#print(gain_plot)
 ```
 
 ```{r, echo=FALSE, fig.width=11, fig.height=4.5}
@@ -132,7 +132,8 @@ grid.arrange(titr_plot, gain_plot, nrow = 1, ncol = 2, top = 'pKa')
 ```
 
 ```{r modelinfo, echo=FALSE}
-kbl(meta,
+kbl(meta %>% 
+      mutate(file=basename(files)),
   caption = "Files used",
   row.names = NA,
   format = 'pandoc',
