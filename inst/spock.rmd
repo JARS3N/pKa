@@ -83,6 +83,12 @@ if (!file.exists(csv_path)) {
 ```
 
 ```{r titrplot, echo=FALSE}
+models<- 
+  purrr::map(split(data,data$dye),function(x){
+    nls(counts ~ SSfpl(pH, Bottom, Top, pKa, Slope), x) 
+  })
+
+model_tbl<-purrr::map_df(models,model_sigs,.id='dye')
 
 titrlines <- purrr::map_df(models,line_data_generate,
                            pH=seq(3.8, 9.2, length.out=150),
